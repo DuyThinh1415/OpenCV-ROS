@@ -44,7 +44,7 @@ nếu nó có biên dịch được và không lỗi, bạn có thể tới bư�
 
 sau khi tải thư mục demo từ git, bạn để nó ở một nơi bất kì trong máy (không nên để trong thư mục catkin_ws). 
 
-Sau đó cd vào thư mục demo_package và gõ lệnh
+Sau đó cd vào thư mục demo và gõ lệnh
 ```shell
 catkin_make
 ```
