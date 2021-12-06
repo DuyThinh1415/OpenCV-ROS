@@ -1,9 +1,20 @@
 # Danh sách các file trong src
-> Blockquote
-> **AI_detection** : File AI của Nhân
+> **AI_detection.py** : File AI của Nhân
 > 
 > **auto_distance_avoid.cpp** : module phát hiện vật cản trước mặt và tính khoảng rộng nhất để xoay về hướng đó và đi
 > 
+> **controller.py** : module controller
+> > 
+> **lane_change.py** : module dùng để kiểm tra tính đúng đắn của giải thuật chuyển làn
+> > 
+> **lane_detect.py** : module dò đường cũ
+> > 
+> **lane_detect_V2.cpp** : module dò đường mới
+> > 
+> **laser_control.cpp** : cũng là phát hiện vật cản nhưng gà hơn
+
+các file khác không được đề cập phía trên nghĩa là không quan trọng, nó chỉ dùng để test những thứ nhảm nhí thôi.
+
   - - - -
 # Hướng dẫn sử dụng gói demo
 
