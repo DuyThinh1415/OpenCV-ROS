@@ -56,8 +56,8 @@ def solve(cmd_split_arr, row_of_detected_header):
     respose_float_3 = float(resultArray[6])
     return [response_header, response_base_arg, respose_int_1, respose_int_2, respose_int_3, respose_float_1, respose_float_2, respose_float_3]
 
-pub = rospy.Publisher('chatter', Num, queue_size=10)
-rospy.init_node('talker', anonymous=True)
+pub = rospy.Publisher('controller_topic', Num, queue_size=10)
+rospy.init_node('Controller', anonymous=True)
 
 while not rospy.is_shutdown():
     cmd = input("~ ")
