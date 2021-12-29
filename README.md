@@ -1,6 +1,4 @@
 # Danh sách các file trong src
-> **AI_detection.py** : File AI của Nhân
-> 
 > **auto_distance_avoid.cpp** : module phát hiện vật cản trước mặt và tính khoảng rộng nhất để xoay về hướng đó và đi
 > 
 > **controller.py** : module controller
