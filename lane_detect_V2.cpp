@@ -19,7 +19,7 @@ using namespace std;
 
 /*
 This file is made by Duy Thinh
-this is version 1.2.1
+this is version 1.3.0.1
 last update: 28/12/2021
 */
 
@@ -37,12 +37,12 @@ class Ram{
   int     sample_jump=5;
   float   Speed=0.1;
   float   change_lane_V_angular;
-  float     change_lane_clk1;
+  float   change_lane_clk1;
   float   change_lane_alpha;
   float   change_lane_b;
   float   change_lane_d1;
   int     change_lane_direction;
-  float     change_lane_clk2;
+  float   change_lane_clk2;
   float   change_lane_remaning_S;
   float   Clock_Per_Sec = CLOCKS_PER_SEC;
   float   Now_FPS;
@@ -257,7 +257,7 @@ cv_bridge::CvImagePtr convert(const sensor_msgs::Image::ConstPtr& msg){
 }
 
 int change_lane_process(){
-  ram.change_lane_V_angular = present_command.float_1*360/(2*3.141592);
+  ram.change_lane_V_angular = present_command.float_2*360/(2*3.141592);
   ram.change_lane_clk1 = (present_command.int_1*ram.Speed)/ram.change_lane_V_angular;
   ram.change_lane_alpha = (present_command.int_1*2*3.141592)/360;
   ram.change_lane_b = ram.Speed/ram.change_lane_V_angular;
@@ -268,10 +268,19 @@ int change_lane_process(){
 };
 
 void contro_sig_recive(const demo_pakage::Num msg){
-  printf("Recive control signal %d \n",msg.header);
   switch (msg.header){
     case 1:{
       ram.FSM_state=1;
+      break;
+    }
+    case 2:{
+      printf("Recive Stop signal \n");
+      ram.Speed=0;
+      break;
+    }
+    case 3:{
+      printf("Recive Move signal at speed %f \n",msg.float_1);
+      ram.Speed=msg.float_1;
       break;
     }
     default:
@@ -284,8 +293,7 @@ void contro_sig_recive(const demo_pakage::Num msg){
 void image_recive(const sensor_msgs::Image::ConstPtr& msg){
   ram.begin_time = ram.end_time;
   ram.end_time = clock();
-  printf("time : %f \n",(double)((ram.end_time - ram.begin_time)/ram.Clock_Per_Sec));
-  printf("FPS perdict : %f \n",ram.Now_FPS);
+  ram.Now_FPS=10;
 	
 	char c=(char)waitKey(3);
     if(c==27){
@@ -314,25 +322,35 @@ void image_recive(const sensor_msgs::Image::ConstPtr& msg){
         {
         
         if (ram.counter_state_1 == 3){
-          data_msg.angular.z = ram.change_lane_direction*present_command.float_1*-1;
+          data_msg.angular.z = ram.change_lane_direction*present_command.float_2*-1;
           ram.change_lane_remaning_S -= ram.Speed*(1.0/ram.Now_FPS);
-          printf("State 3 : %f \n",ram.change_lane_remaning_S);
           if (ram.change_lane_remaning_S <= 0) {
             ram.FSM_state = 0;
+            ram.counter_state_1=0;
             printf("Change Lane complete! \n");
+            break;
           }
         }
         
         if (ram.counter_state_1 == 2){
           data_msg.angular.z=0;
           ram.change_lane_remaning_S -= ram.Speed*(1.0/ram.Now_FPS);
-          printf("State 2 : %f \n",ram.change_lane_remaning_S);
           if (ram.change_lane_remaning_S <= 0) {
             ram.counter_state_1=3;
+            printf("State 3 \n");
             ram.change_lane_remaning_S = ram.change_lane_clk1;
           }
         }
-        
+
+        if (ram.counter_state_1 == 1){
+          data_msg.angular.z = ram.change_lane_direction*present_command.float_2;
+          ram.change_lane_remaning_S -= ram.Speed*(1.0/ram.Now_FPS);
+          if (ram.change_lane_remaning_S <= 0) {
+            ram.counter_state_1=2;
+            ram.change_lane_remaning_S = ram.change_lane_clk2;
+            printf("State 2 \n");
+          }
+        }
         
         if (ram.counter_state_1 == 0){
           printf("STATE 1 started \n");
@@ -343,17 +361,10 @@ void image_recive(const sensor_msgs::Image::ConstPtr& msg){
           }
           ram.counter_state_1=1;
           ram.change_lane_remaning_S = ram.change_lane_clk1;
+          printf("State 1 \n");
         }
 
-        if (ram.counter_state_1 == 1){
-          data_msg.angular.z = ram.change_lane_direction*present_command.float_1;
-          ram.change_lane_remaning_S -= ram.Speed*(1.0/ram.Now_FPS);
-          printf("State 1 : %f \n",ram.change_lane_remaning_S);
-          if (ram.change_lane_remaning_S <= 0) {
-            ram.counter_state_1=2;
-            ram.change_lane_remaning_S = ram.change_lane_clk2;
-          }
-        }
+        
         data_msg.linear.x = ram.Speed;
         publish_data.publish(data_msg);
       }
@@ -363,7 +374,7 @@ void image_recive(const sensor_msgs::Image::ConstPtr& msg){
       ram.FSM_state = 0;
   }
 
-	//printf("frame:%3d process complete ! \n",frame_count);
+	//printf("frame:%3d process complete ! \n",ram.frame_count);
 	ram.frame_count++;
 
 }
