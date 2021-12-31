@@ -19,23 +19,32 @@ using namespace std;
 
 /*
 This file is made by Duy Thinh
-this is version 1.3.0.1
+this is version 1.3.4.2
 last update: 28/12/2021
 */
 
+//Define below use for debug prupose
+#define debug_change_lane 1
+#define debug_process_image 1
+
+// ========================== Code part started ========================
 #define pixel(f,i,c) (int)(*f.ptr(i,c))
 
 class Ram{
   public:
-  int     frame_count=0;
-  float   final_velo=0;
-  int     FSM_state=0;
-  int     counter_state_1=0;
   int     CSR=15;
   int     LRS=25; // number of point get  ( LRS < 50)
   int     RLS=40; // Range of Lane search
   int     sample_jump=5;
   float   Speed=0.1;
+
+//==================== You shouldn't change any variables below ! ===========================
+
+  int     frame_count=0;
+  float   final_velo=0;
+  int     FSM_state=0;
+  int     counter_state_1=0;
+
   float   change_lane_V_angular;
   float   change_lane_clk1;
   float   change_lane_alpha;
@@ -44,12 +53,11 @@ class Ram{
   int     change_lane_direction;
   float   change_lane_clk2;
   float   change_lane_remaning_S;
-  float   Clock_Per_Sec = CLOCKS_PER_SEC;
-  float   Now_FPS;
 
-  clock_t begin_time;
-  clock_t end_time;
-  clock_t init_time;
+  float   Now_FPS;
+  float   counter_FPS=0;
+  double  now_time;
+  double  previous_time;
 };
 
 Ram ram;
@@ -92,7 +100,6 @@ Mat get_Trainform_matrix(){
  }
 
 float process(Mat frame){
-  std::chrono::_V2::system_clock::time_point begin = std::chrono::high_resolution_clock::now();
   Mat gray;
   cvtColor(frame, gray, COLOR_RGB2GRAY);
   Mat crop = gray(Range(240,480),Range(0,640));
@@ -118,6 +125,11 @@ float process(Mat frame){
                 // cut for sum :128*512
 
   int center=256;
+  int sub_threshood=0;
+
+  for (int i=0;i<64;i++){
+      sub_threshood += (int)(*cut_for_sum.ptr(i,center));
+    }
   
   while (center < 512){
     int tmp=0;
@@ -140,13 +152,13 @@ float process(Mat frame){
   }
 
   int left_start=center+128;
-
-  Point p1(left_start,0), p2(left_start,512);
-  line(frame_for_draw, p1, p2, Scalar(255,0,0), 2, LINE_4);
-  p1=Point(right_start,0);
-  p2=Point(right_start,512);
-  line(frame_for_draw, p1, p2, Scalar(255,0,0), 2, LINE_4);
-
+  if (debug_process_image){
+    Point p1(left_start,0), p2(left_start,512);
+    line(frame_for_draw, p1, p2, Scalar(255,0,0), 2, LINE_4);
+    p1=Point(right_start,0);
+    p2=Point(right_start,512);
+    line(frame_for_draw, p1, p2, Scalar(255,0,0), 2, LINE_4);
+  }
   //================================ detect started ===============================
 
   Lane left, right, mid, trust;
@@ -160,7 +172,7 @@ float process(Mat frame){
         left.col[count]=i;
         left.trust[count]=1;
         //rectangle(frame_for_draw, Point(i+1, check_row+1), Point(i-1,check_row-1),Scalar(0,0,255),2,8,0);
-        left_start=i;
+        if (i != left_start+ram.RLS) left_start=i;
         break;
       }
     }
@@ -178,7 +190,7 @@ float process(Mat frame){
         right.col[count]=i;
         right.trust[count]=1;
         //rectangle(frame_for_draw, Point(i+1, check_row+1), Point(i-1,check_row-1),Scalar(0,100,255),2,8,0);
-        right_start=i;
+        if (i != right_start-ram.RLS)right_start=i;
         break;
       }
     }
@@ -193,30 +205,36 @@ float process(Mat frame){
   right.checkCSR();
 
   for (int i=0; i<ram.LRS; i++){
-    if (left.trust[i]){
-      rectangle(frame_for_draw, Point(left.col[i]+1,left.row[i]+1), Point(left.col[i]-1,left.row[i]-1),Scalar(0,0,255),2,8,0);
-    }
-    else {
-      rectangle(frame_for_draw, Point(left.col[i]+1,left.row[i]+1), Point(left.col[i]-1,left.row[i]-1),Scalar(0,255,0),2,8,0);
-    }
-
-    if (right.trust[i]){
-      rectangle(frame_for_draw, Point(right.col[i]+1,right.row[i]+1), Point(right.col[i]-1,right.row[i]-1),Scalar(0,0,255),2,8,0);
-    }
-    else {
-      rectangle(frame_for_draw, Point(right.col[i]+1,right.row[i]+1), Point(right.col[i]-1,right.row[i]-1),Scalar(0,255,0),2,8,0);
-    }
     mid.row[i]=left.row[i];
     mid.col[i]=(left.col[i] + right.col[i])/2;
     mid.trust[i]=(left.trust[i] & right.trust[i]);
+  }
 
-    if (mid.trust[i]){
-      rectangle(frame_for_draw, Point(mid.col[i]+1,mid.row[i]+1), Point(mid.col[i]-1,mid.row[i]-1),Scalar(200,0,255),2,8,0);
-    }
-    else {
-      rectangle(frame_for_draw, Point(mid.col[i]+1,mid.row[i]+1), Point(mid.col[i]-1,mid.row[i]-1),Scalar(200,255,0),2,8,0);
+  if (debug_process_image){
+    for (int i=0; i<ram.LRS; i++){
+      if (left.trust[i]){
+        rectangle(frame_for_draw, Point(left.col[i]+1,left.row[i]+1), Point(left.col[i]-1,left.row[i]-1),Scalar(0,0,255),2,8,0);
+      }
+      else {
+        rectangle(frame_for_draw, Point(left.col[i]+1,left.row[i]+1), Point(left.col[i]-1,left.row[i]-1),Scalar(0,255,0),2,8,0);
+      }
+
+      if (right.trust[i]){
+        rectangle(frame_for_draw, Point(right.col[i]+1,right.row[i]+1), Point(right.col[i]-1,right.row[i]-1),Scalar(0,0,255),2,8,0);
+      }
+      else {
+        rectangle(frame_for_draw, Point(right.col[i]+1,right.row[i]+1), Point(right.col[i]-1,right.row[i]-1),Scalar(0,255,0),2,8,0);
+      }
+      if (mid.trust[i]){
+        rectangle(frame_for_draw, Point(mid.col[i]+1,mid.row[i]+1), Point(mid.col[i]-1,mid.row[i]-1),Scalar(200,0,255),2,8,0);
+      }
+      else {
+        rectangle(frame_for_draw, Point(mid.col[i]+1,mid.row[i]+1), Point(mid.col[i]-1,mid.row[i]-1),Scalar(200,255,0),2,8,0);
+      }
     }
   }
+
+  
 
   count=0;
   int final_index=0;
@@ -228,16 +246,11 @@ float process(Mat frame){
   	if (count >= 5) break;
   }
 
-  imshow( "Warp", frame_for_draw );
-
-  std::chrono::_V2::system_clock::time_point end = std::chrono::high_resolution_clock::now();
-  std::chrono::__enable_if_is_duration<std::chrono::duration<long int, std::ratio<1, 1000000000> > > elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin);
-  //printf("\n =============================== \n Time measured: %.5f seconds. \n", elapsed.count() * 1e-9);
+  if (debug_process_image) imshow( "Warp", frame_for_draw );
 
   if (count >= 5) {
   	return ((384 - (final_index/5.0))/200.0);
   } else return -100;
-
   return -100;
  }
 
@@ -257,14 +270,20 @@ cv_bridge::CvImagePtr convert(const sensor_msgs::Image::ConstPtr& msg){
 }
 
 int change_lane_process(){
-  ram.change_lane_V_angular = present_command.float_2*360/(2*3.141592);
-  ram.change_lane_clk1 = (present_command.int_1*ram.Speed)/ram.change_lane_V_angular;
-  ram.change_lane_alpha = (present_command.int_1*2*3.141592)/360;
+  float command_V_angular = present_command.float_2;
+  float command_delta_d = present_command.float_1;
+
+  int command_turn_direction = present_command.base_arg;
+  int command_alpha = present_command.int_1;
+
+  ram.change_lane_V_angular = command_V_angular*360/(2*3.141592);
+  ram.change_lane_clk1 = (command_alpha*ram.Speed)/ram.change_lane_V_angular;
+  ram.change_lane_alpha = (command_alpha*2*3.141592)/360;
   ram.change_lane_b = ram.Speed/ram.change_lane_V_angular;
   ram.change_lane_d1=((180*ram.change_lane_b)/(3.141592))*(1-cos(ram.change_lane_alpha));
-  ram.change_lane_direction=present_command.base_arg*2-3;
-  ram.change_lane_clk2 = (present_command.float_1 - (360*ram.change_lane_b/3.141592)*(1-cos(ram.change_lane_alpha)))/sin(ram.change_lane_alpha);
-  return (ram.change_lane_d1 > present_command.float_1/2);
+  ram.change_lane_direction=command_turn_direction*2-3;
+  ram.change_lane_clk2 = (command_delta_d - 2*ram.change_lane_d1)/sin(ram.change_lane_alpha);
+  return (ram.change_lane_d1 > command_delta_d/2);
 };
 
 void contro_sig_recive(const demo_pakage::Num msg){
@@ -291,10 +310,16 @@ void contro_sig_recive(const demo_pakage::Num msg){
 }
 
 void image_recive(const sensor_msgs::Image::ConstPtr& msg){
-  ram.begin_time = ram.end_time;
-  ram.end_time = clock();
-  ram.Now_FPS=10;
-	
+
+  ram.previous_time = ram.now_time;
+  ram.now_time=ros::Time::now().toSec();
+  if (ram.counter_FPS < 100){
+    ram.counter_FPS++;
+    ram.Now_FPS=(ram.Now_FPS*ram.counter_FPS + 1.0/(ram.now_time - ram.previous_time))/(ram.counter_FPS+1);
+  } else {
+    ram.Now_FPS = 0.98*ram.now_time + 0.02*(1.0/(ram.now_time - ram.previous_time));
+  }
+
 	char c=(char)waitKey(3);
     if(c==27){
     	printf("\n ===> Sutdown ! <=== \n");
@@ -305,7 +330,6 @@ void image_recive(const sensor_msgs::Image::ConstPtr& msg){
   switch(ram.FSM_state){
     case 0://==============================================
       {
-        ram.Now_FPS = 1.0/(double)((ram.end_time - ram.begin_time)/ram.Clock_Per_Sec);
         cv_bridge::CvImagePtr cv_image = convert(msg);
         float process_value=process(cv_image->image);
         if (process_value != -100 ) {
@@ -323,7 +347,7 @@ void image_recive(const sensor_msgs::Image::ConstPtr& msg){
         
         if (ram.counter_state_1 == 3){
           data_msg.angular.z = ram.change_lane_direction*present_command.float_2*-1;
-          ram.change_lane_remaning_S -= ram.Speed*(1.0/ram.Now_FPS);
+          ram.change_lane_remaning_S -= ram.Speed*(ram.now_time - ram.previous_time);
           if (ram.change_lane_remaning_S <= 0) {
             ram.FSM_state = 0;
             ram.counter_state_1=0;
@@ -334,7 +358,7 @@ void image_recive(const sensor_msgs::Image::ConstPtr& msg){
         
         if (ram.counter_state_1 == 2){
           data_msg.angular.z=0;
-          ram.change_lane_remaning_S -= ram.Speed*(1.0/ram.Now_FPS);
+          ram.change_lane_remaning_S -= ram.Speed*(ram.now_time - ram.previous_time);
           if (ram.change_lane_remaning_S <= 0) {
             ram.counter_state_1=3;
             printf("State 3 \n");
@@ -344,7 +368,7 @@ void image_recive(const sensor_msgs::Image::ConstPtr& msg){
 
         if (ram.counter_state_1 == 1){
           data_msg.angular.z = ram.change_lane_direction*present_command.float_2;
-          ram.change_lane_remaning_S -= ram.Speed*(1.0/ram.Now_FPS);
+          ram.change_lane_remaning_S -= ram.Speed*(ram.now_time - ram.previous_time);
           if (ram.change_lane_remaning_S <= 0) {
             ram.counter_state_1=2;
             ram.change_lane_remaning_S = ram.change_lane_clk2;
@@ -353,11 +377,9 @@ void image_recive(const sensor_msgs::Image::ConstPtr& msg){
         }
         
         if (ram.counter_state_1 == 0){
-          printf("STATE 1 started \n");
           if (change_lane_process()){
             printf("Parameter is not sutable! exit state... \n");
             ram.FSM_state=0;
-            
           }
           ram.counter_state_1=1;
           ram.change_lane_remaning_S = ram.change_lane_clk1;
@@ -379,11 +401,16 @@ void image_recive(const sensor_msgs::Image::ConstPtr& msg){
 
 }
 
+void Init_system(void){
+  printf("System Initialize... \n");
+
+  while (ros::Time::now().toSec() == 0);
+  ram.now_time=ros::Time::now().toSec();
+  printf("System Initialize Complete \n");
+}
+
 int main(int argc, char **argv){
 	ros::init(argc,argv,"sensor_read");
-	ram.begin_time=clock();
-  ram.end_time=clock();
-  ram.init_time=clock();
 	ros::NodeHandle nh;
 	publish_data = nh.advertise<geometry_msgs::Twist>("cmd_vel",1000);
 
@@ -392,7 +419,7 @@ int main(int argc, char **argv){
 
   ros::NodeHandle contro_sig;
 	ros::Subscriber another_topic_sub = contro_sig.subscribe("/controller_topic",1000,contro_sig_recive);
-
+  Init_system();
 	ros::spin();
 
 	return 0;
