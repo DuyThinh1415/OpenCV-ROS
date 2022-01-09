@@ -19,7 +19,7 @@ using namespace std;
 
 /*
 This file is made by Duy Thinh
-this is version 1.4.1.1
+this is version 1.5.2.1
 last update: 31/12/2021
 */
 
@@ -42,8 +42,10 @@ last update: 31/12/2021
              | | :  `- \`. ;`. _/; .'/ /  .' ; |
              \  \ `-.   \_\_`. _.'_/_/  -' _.' /
    ===========`-.`___`-.__\ \___  /__.-'_.'_.-'================
+                           `=--=-'         
    
    Lạy chúa trên cao, xin chúa phù hộ code con chạy không bug
+   nam mô a di đà phật
 */
 
 //Define below use for debug prupose, only yes or no.
