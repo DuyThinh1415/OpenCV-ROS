@@ -55,5 +55,5 @@ model .h5 của AI, bạn phải tải riêng ở drive hoặc nơi khác
 Thư mục config là tùy chọn nêu bạn muốn sử dụng khả năng đọc file yaml
 thư mục launch là tùy chọn nếu bạn muốn sử dụng roslaunch
 ## cài đặt
-bạn bỏ các thư mục đã tải vào một pakage trống và sửa đổi một số thông tin, s
+bạn bỏ các thư mục đã tải vào một pakage trống và sửa đổi một số thông tin, sau đó gõ rosrun để chạy các node 
 
