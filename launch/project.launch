@@ -1,0 +1,6 @@
+<launch> 
+    <rosparam command="load" file="$(find demo_pakage)/config/para.yaml" />
+
+    <node pkg="demo_pakage" type="lane_detect_V2" name="lane_detection" output="screen"/>
+
+</launch>

@@ -19,8 +19,8 @@ using namespace std;
 
 /*
 This file is made by Duy Thinh
-this is version 1.5.2.1
-last update: 31/12/2021
+this is version 1.6.4.2
+last update: 21/1/2022
 */
 
 /*
@@ -70,6 +70,7 @@ class Ram{
   int     FSM_state=0;
   int     counter_state_1=0;
   float   output_speed = 0;
+  int     lane_follow = 1;  // 1= center, 2=left, 3=right
 
   float   change_lane_V_angular;
   float   change_lane_clk1;
@@ -266,23 +267,35 @@ float process(Mat frame){
       }
     }
   }
-
-  
-
+  int followed_index=0;
+  switch(ram.lane_follow){  // 1= center, 2=left, 3=right
+      case 1:
+        followed_index = 384;
+        break;
+      case 2:
+        mid = left;
+        followed_index = 238;
+        break;
+      case 3:
+        mid = right;
+        followed_index = 529;
+        break;
+      default:
+        printf("WARNING: ram.lane_follow is unknow value ! \n");
+    }
   count=0;
   int final_index=0;
   for (int i=0; i<ram.LRS; i++){
-  	if (mid.trust[i])	{
-  		count++;
-  		final_index+=mid.col[i];
-  	}
+    if (mid.trust[i])	{
+      count++;
+      final_index+=mid.col[i];
+    }
   	if (count >= 5) break;
   }
-
+  //printf(" => %5f \n",final_index/5.0);
   if (debug_process_image) imshow( "Warp", frame_for_draw );
-
   if (count >= 5) {
-  	return ((384 - (final_index/5.0))/200.0);
+  	return ((followed_index - (final_index/5.0))/200.0);
   } else return -100;
   return -100;
  }
@@ -334,6 +347,9 @@ void contro_sig_recive(const demo_pakage::Num msg){
       printf("Recive Move signal at speed %f \n",msg.float_1);
       ram.Speed=msg.float_1;
       break;
+    }
+    case 6:{
+      ram.lane_follow = msg.base_arg;
     }
     default:
     printf("Controller header unknow !");
@@ -442,8 +458,8 @@ void image_recive(const sensor_msgs::Image::ConstPtr& msg){
 
 	//printf("frame:%3d process complete ! \n",ram.frame_count);
 	ram.frame_count++;
-  printf("output speed : %5f \n",ram.output_speed);
-  printf("time : %5f \n ========== \n",ros::Time::now().toSec() - ram.now_time);
+  //printf("output speed : %5f \n",ram.output_speed);
+  //printf("time : %5f \n ========== \n",ros::Time::now().toSec() - ram.now_time);
 }
 
 void Init_system(void){

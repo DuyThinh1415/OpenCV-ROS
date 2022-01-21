@@ -13,7 +13,7 @@ import time
 from demo_pakage.msg import Num
 
 index = 0
-model = keras.models.load_model("/home/thinh/ROS/demo/src/demo_pakage/src/model-370.h5")
+model = keras.models.load_model("/home/thinh/ROS/demo/src/demo_pakage/resource/model-370.h5")
 
 pub = rospy.Publisher('chatter', Num, queue_size=10)
 rospy.init_node('signal_detection', anonymous=True)
