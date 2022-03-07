@@ -3,6 +3,9 @@
 #include "math.h"
 #include "time.h"
 #include "vector"
+//#include "xlsxwriter.h"
+#include <iostream>
+#include <fstream>
 
 #include "geometry_msgs/Twist.h"
 #include "sensor_msgs/Image.h"
@@ -22,6 +25,8 @@ using namespace std;
 // ========================== Code part started ========================
 #define pixel(f,i,c) (int)(*f.ptr(i,c))
 #define r_zone 20
+#define MPFZ 50     //Minimum Point to Form a Zone
+#define MSFZ 200    //Minimum Point to Form a Zone
 
 class Coordinates{
     public:
@@ -37,6 +42,8 @@ class Coordinates{
 Mat full_black_mat = imread("/home/thinh/ROS/demo/src/demo_pakage/resource/full_black.png",IMREAD_COLOR);
 
 Mat slamp_output_layer;
+
+std::ofstream out_file;
 
 class One_pixel_in4{
     public:
@@ -99,20 +106,18 @@ void rec_scan(int group_value){
 }
 
 void movement_predict_process(Lidar_frame nframe, Lidar_frame oframe){
-    //printf(" => Go to movement_predict_process \n");
     labeled_list.clear();
 
     int i;
     for (i=0; i<nframe.size; i++){
         if (oframe.local_map.at<char>(nframe.pixel_list[i].x,nframe.pixel_list[i].y) == 0){
-            nframe.pixel_list[i].label = 1;
+            nframe.pixel_list[i].type = 1;
             global_list.push_back(nframe.pixel_list[i]);
         }
     }
-    //printf(" => Go to second movement_predict_process \n");
     for (i=0; i<oframe.size; i++){        
         if (nframe.local_map.at<char>(oframe.pixel_list[i].x, oframe.pixel_list[i].y) == 0){
-            oframe.pixel_list[i].label=3;
+            oframe.pixel_list[i].type=3;
             global_list.push_back(oframe.pixel_list[i]);
         }
     }
@@ -127,9 +132,91 @@ void movement_predict_process(Lidar_frame nframe, Lidar_frame oframe){
         number_of_group++;
     }
     printf(" Number of group : %d \n",number_of_group);
-    //printf(" => Exit movement_predict_process \n");
+
+    int newx = 0, 
+        newy = 0, 
+        oldx = 0, 
+        oldy = 0,
+        new_size = 0,
+        old_size = 0;
+
+    if (labeled_list[0].type == 1){
+        newx+=labeled_list[0].x;
+        newy+=labeled_list[0].y;
+        new_size++;
+    } else if (labeled_list[0].type == 3){
+        oldx+=labeled_list[0].x;
+        oldy+=labeled_list[0].y;
+        old_size++;
+    } else {
+        printf("Warning : labeled_list had unknow type");
+    }
+
+    for (i=1; i<labeled_list.size(); i++){
+        if (labeled_list[i].label != labeled_list[i-1].label){
+            if ((new_size == 0) | (old_size == 0) | (new_size + old_size < MPFZ)) {
+                newx=newy=oldx=oldy=0;
+                new_size = old_size = 0;
+                if (labeled_list[i].type == 1){
+                    newx+=labeled_list[i].x;
+                    newy+=labeled_list[i].y;
+                    new_size++;
+                } else {
+                    oldx+=labeled_list[i].x;
+                    oldy+=labeled_list[i].y;
+                    old_size++;
+                }
+                continue;
+            }
+            newx/=new_size;
+            newy/=new_size;
+            oldx/=old_size;
+            oldy/=old_size;
+            printf("%d - %d : %d \n",newx, newy, new_size);
+
+            int d=6;
+            newx=(newx-oldx)*d+oldx;
+            newy=(newy-oldy)*d+oldy;
+            line(slamp_output_layer, Point(oldx, oldy),Point(newx, newy),Scalar(0, 255, 0),2,LINE_AA);
+
+            newx=newy=oldx=oldy=0;
+            new_size = old_size = 0;
+            if (labeled_list[i].type == 1){
+                newx+=labeled_list[i].x;
+                newy+=labeled_list[i].y;
+                new_size++;
+            } else {
+                oldx+=labeled_list[i].x;
+                oldy+=labeled_list[i].y;
+                old_size++;
+            }
+            
+        } else {
+            if (labeled_list[i].type == 1){
+                newx+=labeled_list[i].x;
+                newy+=labeled_list[i].y;
+                new_size++;
+            } else if (labeled_list[i].type == 3){
+                oldx+=labeled_list[i].x;
+                oldy+=labeled_list[i].y;
+                old_size++;
+            } else {
+                printf("Warning : labeled_list had unknow type");
+            }
+        }
+    }
     
 }
+
+Mat full_map;
+
+void draw_the_map(Coordinates newPoint, Coordinates dest){
+    line(full_map, Point(newPoint.x *100, newPoint.y *100), Point(dest.x, dest.y), Scalar(255, 0, 0),
+         1, LINE_8);
+    Vec3b wall_color={200,100,200};
+    full_map.at<Vec3b>(Point(dest.x, dest.y)) = wall_color;
+    imshow("full map", full_map);
+};
 
 class Data_Map{
     public:
@@ -154,7 +241,6 @@ class Data_Map{
         
         rectangle(slamp_output_layer, Point(oldPoint.x*100-2,oldPoint.y*100-2), Point(oldPoint.x*100+2,oldPoint.y*100+2),Scalar(0,255,0),2,8,0);
         
-        
         rectangle(slamp_output_layer, Point(newPoint.x*100-2,newPoint.y*100-2), Point(newPoint.x*100+2,newPoint.y*100+2),Scalar(0,0,255),2,8,0);
         
         if (labeled_list.size() != 0){
@@ -164,15 +250,18 @@ class Data_Map{
             int minx=labeled_list[0].x;
             int miny=labeled_list[0].y;
             int old_label=0;
+
+            int cout_label=0;
         
             for (int i=1; i<labeled_list.size();i++){
                 if (old_label == labeled_list[i].label){
+                    cout_label++;
                     if (labeled_list[i].x > maxx) maxx = labeled_list[i].x;
                     if (labeled_list[i].x < minx) minx = labeled_list[i].x;
                     if (labeled_list[i].y > maxy) maxy = labeled_list[i].y;
                     if (labeled_list[i].y < miny) miny = labeled_list[i].y;
                 } else {
-                    rectangle(slamp_output_layer, Point(maxx+2,maxy+2), Point(minx-2,miny-2),Scalar(120,70,200),2,8,0);
+                    if ((cout_label > MPFZ) & (((maxx-minx)*(maxy-miny)) > MSFZ)) rectangle(slamp_output_layer, Point(maxx+2,maxy+2), Point(minx-2,miny-2),Scalar(120,70,200),2,8,0);
                     
                     old_label = labeled_list[i].label;
 
@@ -190,6 +279,8 @@ class Data_Map{
         char c=(char)waitKey(3);
         if(c==27){
             printf("\n ===> Sutdown Signal Recive <=== \n");
+            out_file.close();
+            cout<<"close complete";
             cv::destroyAllWindows();
             ros::shutdown();
         }
@@ -250,6 +341,7 @@ class Data_Map{
                     int write_val = 255;
                     rectangle(slamp_output_layer, Point(dest.x+1,dest.y+1), Point(dest.x-1,dest.y-1),Scalar(write_val,0,100),2,2,0);
                     newFrame.set(dest);
+                    draw_the_map(newPoint,dest);
                 }
                 
             }
@@ -263,6 +355,7 @@ class Data_Map{
 Data_Map data_map;
 
 int cout_bla=0;
+int cout_for_txt=0;
 double now_time=0;
 double pre_time=0;
 
@@ -272,32 +365,34 @@ void velo_recive(const geometry_msgs::Twist::ConstPtr& msg){
     pre_time = now_time;
     now_time = ros::Time::now().toSec();
     data_map.update_nhan(msg->linear.x, msg->angular.z, now_time-pre_time);
-    
-
-    char c=(char)waitKey(3);
-    if(c==27){
-    	printf("\n ===> Sutdown Signal Recive <=== \n");
-		cv::destroyAllWindows();
-		ros::shutdown();
-    }
     printf("2");
 }
 
 void scan_recive(const sensor_msgs::LaserScan::ConstPtr& msg){
-    printf("3");
     double find_time=ros::Time::now().toSec();
     pre_time = now_time;
     now_time = ros::Time::now().toSec();
     data_map.update_slamp(now_time-pre_time, msg);
+    for (int i=0; i<360; i++){
+        if (!isinf(msg->ranges[i])) out_file<< msg->ranges[i] <<" ";
+        else out_file << -1<<" ";
+    }
+    out_file<<"\n";
+    cout_for_txt++;
+    cout<<cout_for_txt<<endl;
+
     //imshow("map",slamp_map);
     printf("running time : %7f \n",ros::Time::now().toSec()-find_time);
-    printf("4");
 }
 
 void Init(){
     printf("INIT \n");
     resize(full_black_mat, full_black_mat, Size(512,512), 0, 0, CV_INTER_LINEAR);
     slamp_output_layer = full_black_mat.clone();
+    full_map = full_black_mat.clone();
+    out_file.open("/home/thinh/output.txt",ios::out | ios::binary);
+    if (out_file.is_open()) cout<<"GOOOOOOOOOOOOOOO";
+    else cout <<"DAMEEEEEEEEEEEEE";
     while (ros::Time::now().toSec() == 0);
     printf("complete INIT \n");
 }

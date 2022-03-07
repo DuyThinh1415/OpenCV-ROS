@@ -19,12 +19,37 @@ using namespace std;
 
 /*
 This file is made by Duy Thinh
-this is version 1.3.4.2
-last update: 28/12/2021
+this is version 1.6.4.2
+last update: 21/1/2022
 */
 
-//Define below use for debug prupose
-#define debug_change_lane 1
+/*
+                              _
+                           _ooOoo_
+                          o8888888o
+                          88" . "88
+                          (| -_- |)
+                          O\  =  /O
+                       ____/`---'\____
+                     .'  \\|     |//  `.
+                    /  \\|||  :  |||//  \
+                   /  _||||| -:- |||||_  \
+                   |   | \\\  -  /'| |   |
+                   | \_|  `\`---'//  |_/ |
+                   \  .-\__ `-. -'__/-.  /
+                 ___`. .'  /--.--\  `. .'___
+              ."" '<  `.___\_<|>_/___.' _> \"".
+             | | :  `- \`. ;`. _/; .'/ /  .' ; |
+             \  \ `-.   \_\_`. _.'_/_/  -' _.' /
+   ===========`-.`___`-.__\ \___  /__.-'_.'_.-'================
+                           `=--=-'         
+   
+   Lạy chúa trên cao, xin chúa phù hộ code con chạy không bug
+   nam mô a di đà phật
+*/
+
+//Define below use for debug prupose, only yes or no.
+#define debug_change_lane 0
 #define debug_process_image 1
 
 // ========================== Code part started ========================
@@ -41,9 +66,11 @@ class Ram{
 //==================== You shouldn't change any variables below ! ===========================
 
   int     frame_count=0;
-  float   final_velo=0;
+  float   final_angular_velo=0;
   int     FSM_state=0;
   int     counter_state_1=0;
+  float   output_speed = 0;
+  int     lane_follow = 1;  // 1= center, 2=left, 3=right
 
   float   change_lane_V_angular;
   float   change_lane_clk1;
@@ -58,6 +85,11 @@ class Ram{
   float   counter_FPS=0;
   double  now_time;
   double  previous_time;
+
+  // ============== Parameter ========================
+
+  float acceleration_max=0.05;
+  float acceleration_ratio=0.3;
 };
 
 Ram ram;
@@ -116,7 +148,14 @@ float process(Mat frame){
   line(warp, Point(6,408), Point(253,514),Scalar(0),7,8,0);
   line(warp, Point(757,410), Point(518,512),Scalar(0),7,8,0);
 
-  Mat cut_for_sum=warp(Range(448,512),Range(128,640));
+  int find_started=0;
+  Mat cut_for_sum;
+
+  for (int i=448;i<512;i++){
+      find_started += (int)(*warp.ptr(i,384));
+    }
+  if (find_started == 0 ) cut_for_sum=warp(Range(448,512),Range(128,640));
+  else cut_for_sum=warp(Range(320,384),Range(128,640));
   
   Mat frame_for_draw;
   cvtColor(warp, frame_for_draw, COLOR_GRAY2RGB);
@@ -125,18 +164,13 @@ float process(Mat frame){
                 // cut for sum :128*512
 
   int center=256;
-  int sub_threshood=0;
-
-  for (int i=0;i<64;i++){
-      sub_threshood += (int)(*cut_for_sum.ptr(i,center));
-    }
   
   while (center < 512){
     int tmp=0;
     for (int i=0;i<64;i++){
       tmp=tmp+(int)(*cut_for_sum.ptr(i,center));
     }
-    if (tmp > 5000) break;
+    if (tmp > 2000) break;
     center++;
   }
   int right_start=center+128;
@@ -147,7 +181,7 @@ float process(Mat frame){
     for (int i=0;i<64;i++){
       tmp=tmp+(int)(*cut_for_sum.ptr(i,center));
     }
-    if (tmp > 5000) break;
+    if (tmp > 2000) break;
     center--;
   }
 
@@ -233,23 +267,35 @@ float process(Mat frame){
       }
     }
   }
-
-  
-
+  int followed_index=0;
+  switch(ram.lane_follow){  // 1= center, 2=left, 3=right
+      case 1:
+        followed_index = 384;
+        break;
+      case 2:
+        mid = left;
+        followed_index = 238;
+        break;
+      case 3:
+        mid = right;
+        followed_index = 529;
+        break;
+      default:
+        printf("WARNING: ram.lane_follow is unknow value ! \n");
+    }
   count=0;
   int final_index=0;
   for (int i=0; i<ram.LRS; i++){
-  	if (mid.trust[i])	{
-  		count++;
-  		final_index+=mid.col[i];
-  	}
+    if (mid.trust[i])	{
+      count++;
+      final_index+=mid.col[i];
+    }
   	if (count >= 5) break;
   }
-
+  //printf(" => %5f \n",final_index/5.0);
   if (debug_process_image) imshow( "Warp", frame_for_draw );
-
   if (count >= 5) {
-  	return ((384 - (final_index/5.0))/200.0);
+  	return ((followed_index - (final_index/5.0))/200.0);
   } else return -100;
   return -100;
  }
@@ -302,6 +348,9 @@ void contro_sig_recive(const demo_pakage::Num msg){
       ram.Speed=msg.float_1;
       break;
     }
+    case 6:{
+      ram.lane_follow = msg.base_arg;
+    }
     default:
     printf("Controller header unknow !");
   }
@@ -311,6 +360,7 @@ void contro_sig_recive(const demo_pakage::Num msg){
 
 void image_recive(const sensor_msgs::Image::ConstPtr& msg){
 
+  //===== process time =====//
   ram.previous_time = ram.now_time;
   ram.now_time=ros::Time::now().toSec();
   if (ram.counter_FPS < 100){
@@ -320,9 +370,19 @@ void image_recive(const sensor_msgs::Image::ConstPtr& msg){
     ram.Now_FPS = 0.98*ram.now_time + 0.02*(1.0/(ram.now_time - ram.previous_time));
   }
 
+  //===== process speed =====//
+  float tmp_speed = ram.Speed*ram.acceleration_ratio + (1-ram.acceleration_ratio)*ram.output_speed;
+  if ((tmp_speed - ram.output_speed) > ram.acceleration_max){
+    ram.output_speed += ram.acceleration_max;
+  } else if ((tmp_speed - ram.output_speed) < -1*ram.acceleration_max){
+    ram.output_speed -= ram.acceleration_max;
+  } else ram.output_speed = tmp_speed;
+
 	char c=(char)waitKey(3);
     if(c==27){
-    	printf("\n ===> Sutdown ! <=== \n");
+    	printf("\n ===> Sutdown Signal Recive <=== \n");
+      printf("FPS: %3f \n",ram.Now_FPS);
+
 			cv::destroyAllWindows();
 			ros::shutdown();
     }
@@ -333,12 +393,12 @@ void image_recive(const sensor_msgs::Image::ConstPtr& msg){
         cv_bridge::CvImagePtr cv_image = convert(msg);
         float process_value=process(cv_image->image);
         if (process_value != -100 ) {
-          ram.final_velo = process_value*0.2 + ram.final_velo*0.8;
+          ram.final_angular_velo = process_value*0.2 + ram.final_angular_velo*0.8;
           //printf("Lane detected \n");
         }
-        //printf(" turn %4f => %4f \n",process_value, final_velo);
-        data_msg.linear.x = ram.Speed;
-        data_msg.angular.z = ram.final_velo;
+        //printf(" turn %4f => %4f \n",process_value, ram.final_angular_velo);
+        data_msg.linear.x = ram.output_speed;
+        data_msg.angular.z = ram.final_angular_velo;
         publish_data.publish(data_msg);
         break;
       }
@@ -347,7 +407,7 @@ void image_recive(const sensor_msgs::Image::ConstPtr& msg){
         
         if (ram.counter_state_1 == 3){
           data_msg.angular.z = ram.change_lane_direction*present_command.float_2*-1;
-          ram.change_lane_remaning_S -= ram.Speed*(ram.now_time - ram.previous_time);
+          ram.change_lane_remaning_S -= ram.output_speed*(ram.now_time - ram.previous_time);
           if (ram.change_lane_remaning_S <= 0) {
             ram.FSM_state = 0;
             ram.counter_state_1=0;
@@ -358,7 +418,7 @@ void image_recive(const sensor_msgs::Image::ConstPtr& msg){
         
         if (ram.counter_state_1 == 2){
           data_msg.angular.z=0;
-          ram.change_lane_remaning_S -= ram.Speed*(ram.now_time - ram.previous_time);
+          ram.change_lane_remaning_S -= ram.output_speed*(ram.now_time - ram.previous_time);
           if (ram.change_lane_remaning_S <= 0) {
             ram.counter_state_1=3;
             printf("State 3 \n");
@@ -368,7 +428,7 @@ void image_recive(const sensor_msgs::Image::ConstPtr& msg){
 
         if (ram.counter_state_1 == 1){
           data_msg.angular.z = ram.change_lane_direction*present_command.float_2;
-          ram.change_lane_remaning_S -= ram.Speed*(ram.now_time - ram.previous_time);
+          ram.change_lane_remaning_S -= ram.output_speed*(ram.now_time - ram.previous_time);
           if (ram.change_lane_remaning_S <= 0) {
             ram.counter_state_1=2;
             ram.change_lane_remaning_S = ram.change_lane_clk2;
@@ -387,7 +447,7 @@ void image_recive(const sensor_msgs::Image::ConstPtr& msg){
         }
 
         
-        data_msg.linear.x = ram.Speed;
+        data_msg.linear.x = ram.output_speed;
         publish_data.publish(data_msg);
       }
       break;
@@ -398,7 +458,8 @@ void image_recive(const sensor_msgs::Image::ConstPtr& msg){
 
 	//printf("frame:%3d process complete ! \n",ram.frame_count);
 	ram.frame_count++;
-
+  //printf("output speed : %5f \n",ram.output_speed);
+  //printf("time : %5f \n ========== \n",ros::Time::now().toSec() - ram.now_time);
 }
 
 void Init_system(void){
@@ -410,7 +471,7 @@ void Init_system(void){
 }
 
 int main(int argc, char **argv){
-	ros::init(argc,argv,"sensor_read");
+	ros::init(argc,argv,"lane_detection");
 	ros::NodeHandle nh;
 	publish_data = nh.advertise<geometry_msgs::Twist>("cmd_vel",1000);
 
@@ -419,6 +480,13 @@ int main(int argc, char **argv){
 
   ros::NodeHandle contro_sig;
 	ros::Subscriber another_topic_sub = contro_sig.subscribe("/controller_topic",1000,contro_sig_recive);
+
+  ros::NodeHandle private_nh("~");
+
+  ram.acceleration_max = private_nh.param<float>("acceleration_max",0.05);
+  ram.acceleration_ratio = private_nh.param<float>("acceleration_ratio",0.4);
+
+
   Init_system();
 	ros::spin();
 

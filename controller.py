@@ -25,7 +25,7 @@ ROW_OF_NAME_COLS = 1
 #----------------------------INSTALL LIBRARY---------------------------#
 
 # Give the location of the file 
-path = "/home/thinh/ROS/demo/src/demo_pakage/src/cmd.xlsx"
+path = "/home/thinh/ROS/demo/src/demo_pakage/resource/cmd.xlsx"
 
 work_book_obj = openpyxl.load_workbook(path)
 work_book_active_obj = work_book_obj.active
