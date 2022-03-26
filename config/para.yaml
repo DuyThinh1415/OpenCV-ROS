@@ -3,7 +3,9 @@ param_name_test:
   int_param: 5
   
 lane_detection:
+  verify: 1
   acceleration_max: 0.05
   acceleration_ratio: 0.4
+  
   
   

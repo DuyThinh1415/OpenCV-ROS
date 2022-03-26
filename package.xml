@@ -30,6 +30,7 @@
   <build_depend>image_transport</build_depend>
   <build_depend>sensor_msgs</build_depend>
   <build_depend>cv_bridge</build_depend>
+  <!--build_depend>xlsxwriter</build_depend-->
 
   <exec_depend>roscpp</exec_depend>
   <exec_depend>rospy</exec_depend>
@@ -38,6 +39,7 @@
   <exec_depend>image_transport</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>cv_bridge</exec_depend>
+  <!--exec_depend>xlsxwriter</exec_depend-->
 
   <!-- Author tags are optional, multiple are allowed, one per tag -->
   <!-- Authors do not have to be maintainers, but could be -->

@@ -1,6 +1,7 @@
 <launch> 
     <rosparam command="load" file="$(find demo_pakage)/config/para.yaml" />
+    <rosparam command="load" file="$(find demo_pakage)/config/cam_conf_gazebo.yaml" />
 
-    <node pkg="demo_pakage" type="lane_detect_V2" name="lane_detection" output="screen"/>
+    <node pkg="demo_pakage" type="lane_detect_V3" name="lane_detection" output="screen"/>
 
 </launch>

@@ -1,0 +1,11 @@
+lane_detection:
+  p1x: 200
+  p1y: 250
+  p2x: 0
+  p2y: 400
+  p3x: 0
+  p3y: 0
+  p4x: 280
+  p4y: 768
+  at_0: 285
+  at_384: 603

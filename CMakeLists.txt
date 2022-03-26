@@ -147,11 +147,14 @@ add_message_files(
  add_executable(sub_node src/sub_node.cpp)
  add_executable(laser_control src/laser_control.cpp)
  add_executable(auto_distance_avoid src/auto_distance_avoid.cpp)
- add_executable(lane_detect_V2 src/lane_detect_V2.cpp)
+ add_executable(lane_detect_V3 src/lane_detect_V3.cpp)
  add_executable(two_sub_test src/two_sub_test.cpp)
  add_executable(controller src/controller.cpp)
  add_executable(slamp_test src/slamp_test.cpp)
  add_executable(xml_test src/xml_test.cpp)
+ add_executable(lane_real src/lane_real.cpp)
+ 
+ #add_executable(main_process src/main_process.cpp src/main_process_lib.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -169,7 +172,7 @@ add_dependencies(laser_control ${laser_control_EXPORTED_TARGETS} ${catkin_EXPORT
 
 add_dependencies(auto_distance_avoid ${auto_distance_avoid_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-add_dependencies(lane_detect_V2 ${lane_detect_V2_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(lane_detect_V3 ${lane_detect_V3_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 add_dependencies(two_sub_test ${two_sub_test_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
@@ -178,6 +181,10 @@ add_dependencies(controller ${controller_EXPORTED_TARGETS} ${catkin_EXPORTED_TAR
 add_dependencies(slamp_test ${slamp_test_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 add_dependencies(xml_test ${xml_test_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
+add_dependencies(lane_real ${lane_real_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
+#add_dependencies(main_process ${xml_test_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
  target_link_libraries(pub_node
@@ -196,7 +203,7 @@ add_dependencies(xml_test ${xml_test_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS
    ${catkin_LIBRARIES}
  )
 
-  target_link_libraries(lane_detect_V2
+  target_link_libraries(lane_detect_V3
    ${catkin_LIBRARIES}
  )
 
@@ -215,6 +222,14 @@ add_dependencies(xml_test ${xml_test_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS
  target_link_libraries(xml_test
    ${catkin_LIBRARIES}
  )
+
+ target_link_libraries(lane_real
+   ${catkin_LIBRARIES}
+ )
+
+ #target_link_libraries(main_process
+ #  ${catkin_LIBRARIES}
+ #)
  
 #############
 ## Install ##
